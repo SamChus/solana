@@ -1,15 +1,29 @@
-import {generateKeyPairSigner, createSolanaRpc, devnet, Address} from "@solana/kit"
-
+import {
+  createKeyPairSignerFromBytes,
+  createSolanaRpc,
+  devnet,
+  Address,
+} from "@solana/kit";
+import { loadWalletBytes } from "./store";
 
 const rpc = createSolanaRpc(devnet("https://api.devnet.solana.com"));
 
-const address = "5azGoHqpkqX2Ze6PCFRKZDAx58DNaeJNMt37e5CGVker" as Address;
-
 async function checkBalance() {
+  const walletBytes = loadWalletBytes();
+
+  if (!walletBytes) {
+    console.error(
+      "No wallet found. Run `npm run create-wallet` or `tsx create-wallet.ts` first.",
+    );
+    process.exit(1);
+  }
+
+  const signer = await createKeyPairSignerFromBytes(walletBytes, true);
+  const address = signer.address as Address;
+
   try {
-    const {value :balance
-    } = await rpc.getBalance(address).send();
-    const balanceInSOL = Number(balance) / 1e9; // Convert lamports to SOL
+    const { value: balance } = await rpc.getBalance(address).send();
+    const balanceInSOL = Number(balance) / 1e9;
     console.log(`Balance for address ${address}: ${balanceInSOL} SOL`);
   } catch (error) {
     console.error("Failed to fetch balance:", error);

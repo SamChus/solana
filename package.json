@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "create-wallet": "tsx create-wallet.ts",
     "dev": "tsx create-wallet.ts",
     "check-balance": "tsx checkBalance.ts",
     "test": "echo \"Error: no test specified\" && exit 1"

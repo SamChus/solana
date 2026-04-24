@@ -1,47 +1,57 @@
 import fs from "fs";
 import path from "path";
 
-const WALLET_FILE = path.join(process.cwd(), "wallet.json");
+const WALLET_FILE = path.join(process.cwd(), "wallet.json"); 
 
-interface StoredWallet {
-  address: string;
-  publicKey: string;
-  createdAt: string;
+export function getWalletFilePath(): string {
+  return WALLET_FILE;
 }
 
-export async function saveWallet(
-  address: string,
-  publicKey: string,
-): Promise<void> {
-  const wallet: StoredWallet = {
-    address,
-    publicKey,
-    createdAt: new Date().toISOString(),
-  };
-
-  fs.writeFileSync(WALLET_FILE, JSON.stringify(wallet, null, 2));
-  console.log(`Wallet saved to ${WALLET_FILE}`);
-}
-
-export function loadWallet(): StoredWallet | null {
+export function loadWalletBytes(): Uint8Array | null {
   try {
-    if (fs.existsSync(WALLET_FILE)) {
-      const data = fs.readFileSync(WALLET_FILE, "utf-8");
-      return JSON.parse(data);
+    if (!fs.existsSync(WALLET_FILE)) {
+      return null;
     }
+
+    const data = fs.readFileSync(WALLET_FILE, "utf-8").trim();
+    const parsed = JSON.parse(data);
+
+    if (Array.isArray(parsed)) {
+      return new Uint8Array(parsed);
+    }
+
+    if (
+      parsed &&
+      typeof parsed === "object" && 
+      typeof parsed.secretKey === "string"
+    ) {
+      return new Uint8Array(Buffer.from(parsed.secretKey, "base64"));
+    }
+
+    return null;
   } catch (error) {
     console.error("Failed to load wallet:", error);
+    return null;
   }
-  return null;
 }
 
-export function deleteWallet(): void {
-  try {
-    if (fs.existsSync(WALLET_FILE)) {
-      fs.unlinkSync(WALLET_FILE);
-      console.log("Wallet deleted");
-    }
-  } catch (error) {
-    console.error("Failed to delete wallet:", error);
+export function walletFileExists(): boolean {
+  return fs.existsSync(WALLET_FILE);
+}
+
+export function backupLegacyWallet(): void {
+  if (!fs.existsSync(WALLET_FILE)) {
+    return;
   }
+
+  let backupPath = `${WALLET_FILE}.legacy.json`;
+  let suffix = 1;
+
+  while (fs.existsSync(backupPath)) {
+    backupPath = `${WALLET_FILE}.legacy.${suffix}.json`;
+    suffix += 1;
+  }
+
+  fs.renameSync(WALLET_FILE, backupPath);
+  console.log(`Backed up legacy wallet file to ${backupPath}`);
 }

@@ -1,36 +1,45 @@
-import { generateKeyPairSigner } from "@solana/kit";
-import { saveWallet } from "./store";
+import {
+  createKeyPairSignerFromBytes,
+  generateKeyPairSigner,
+  writeKeyPairSigner,
+} from "@solana/kit";
+import {
+  backupLegacyWallet,
+  getWalletFilePath,
+  loadWalletBytes,
+  walletFileExists,
+} from "./store";
 
-async function createWallet(): Promise<void> {
-  const keypair = await generateKeyPairSigner();
-  const address = keypair.address;
- 
+async function getOrCreateWallet() {
+  const walletBytes = loadWalletBytes();
+  const walletPath = getWalletFilePath();
 
-  console.log("=== Solana Wallet Keys ===\n");
-  console.log("Public Address:", keypair.address);
-
-  // Try to export the public key since it's extractable
-  try {
-    const publicKeyExported = await crypto.subtle.exportKey(
-      "raw",
-      keypair.keyPair.publicKey,
-    );
-    const publicKeyHex = Buffer.from(publicKeyExported).toString("hex");
-    const publicKeyBase64 = Buffer.from(publicKeyExported).toString("base64");
-
-    saveWallet(address, publicKeyBase64);
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.log("Could not export public key:", errorMessage);
+  if (walletBytes) {
+    const signer = await createKeyPairSignerFromBytes(walletBytes, true);
+    console.log("Loaded existing wallet from wallet.json");
+    console.log("Address:", signer.address);
+    return signer;
   }
 
-  // Note: Private key is not extractable (extractable: false)
-  // This is a security feature - the private key cannot be exported
-  console.log("\nNote: Private key is non-extractable for security reasons.");
-  console.log("The keypair can be used to sign transactions directly via:");
-  console.log("- keypair.signMessages()");
-  console.log("- keypair.signTransactions()");
+  if (walletFileExists()) {
+    console.warn(
+      "Found legacy wallet.json without a reloadable private key. Backing it up before creating a new wallet.",
+    );
+    backupLegacyWallet();
+  }
+
+  const signer = await generateKeyPairSigner(true);
+  await writeKeyPairSigner(signer, walletPath, {
+    unsafelyOverwriteExistingKeyPair: true,
+  });
+
+  console.log("Generated a new wallet and saved it to wallet.json");
+  console.log("Address:", signer.address);
+  return signer;
+}
+
+async function createWallet(): Promise<void> {
+  await getOrCreateWallet();
 }
 
 createWallet().catch((error: Error) => {
