@@ -15,6 +15,7 @@ export function loadWalletBytes(): Uint8Array | null {
 
     const data = fs.readFileSync(WALLET_FILE, "utf-8").trim();
     const parsed = JSON.parse(data);
+    console.log(data)
 
     if (Array.isArray(parsed)) {
       return new Uint8Array(parsed);
